@@ -145,14 +145,14 @@ class DesktopPlatform : Platform {
                     result.add(
                         ConvertedData(
                             productName = productName,
-                            productsCount = productsCountInt,
+                            productsCount = productsCountInt.toDouble(),
                             priceWithNds = priceWithNds.toDouble(),
                             priceWithoutNds = priceWithoutNds.toDouble(),
                             sumWithNds = sumWithNds,
                             sumWithoutNds = sumWithoutNds,
                         )
                     )
-                    println("file ${file.name} productName=$productName productsCount=$productsCount priceWithNds=$priceWithNds priceWithoutNds=$priceWithoutNds summWithNds=$sumWithNds summWithoutNds=$sumWithoutNds")
+                    println("file ${file.name} productName=$productName productsCount=${productsCountInt.toDouble()} priceWithNds=$priceWithNds priceWithoutNds=$priceWithoutNds summWithNds=$sumWithNds summWithoutNds=$sumWithoutNds")
                 } else {
                     // todo добавить маркер, что файл не был обработан
                 }
@@ -178,9 +178,7 @@ class DesktopPlatform : Platform {
         data.forEachIndexed { index, convertedData ->
             val row = workSheet.createRow(index + 1)
             row.createCell(0).setCellValue(convertedData.productName)
-            val countCell = row.createCell(1)
-            countCell.setCellValue(convertedData.productsCount.toString())
-            countCell.cellType = CellType.NUMERIC
+            row.createCell(1).setCellValue(convertedData.productsCount)
             row.createCell(2).setCellValue(convertedData.priceWithoutNds)
             row.createCell(3).setCellValue(convertedData.priceWithNds)
             row.createCell(4).setCellValue(convertedData.sumWithoutNds)

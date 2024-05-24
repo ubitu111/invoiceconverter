@@ -13,6 +13,8 @@ kotlin {
             implementation(projects.shared)
         }
     }
+
+    task("testClasses")
 }
 
 compose.desktop {

@@ -9,7 +9,7 @@ interface Platform {
 
 data class ConvertedData(
     val productName: String,
-    val productsCount: Int,
+    val productsCount: Double,
     val priceWithNds: Double,
     val priceWithoutNds: Double,
     val sumWithNds: Double,
