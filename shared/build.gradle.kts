@@ -7,18 +7,13 @@ plugins {
 }
 
 kotlin {
-    androidTarget {
-        compilations.all {
-            kotlinOptions {
-                jvmTarget = "1.8"
-            }
-        }
-    }
+    jvmToolchain(17)
+    androidTarget()
+    jvm()
+
 //    iosX64()
 //    iosArm64()
 //    iosSimulatorArm64()
-
-    jvm()
 
 //    cocoapods {
 //        summary = "Some description for the Shared Module"
@@ -84,10 +79,6 @@ android {
     compileSdk = 34
     defaultConfig {
         minSdk = 28
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
 
