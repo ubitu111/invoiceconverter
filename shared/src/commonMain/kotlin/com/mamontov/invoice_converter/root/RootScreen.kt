@@ -1,16 +1,22 @@
 package com.mamontov.invoice_converter.root
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,23 +29,36 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import com.mamontov.invoice_converter.InputData
+import com.mamontov.invoice_converter.MR
+import com.mamontov.invoice_converter.VendorType
 import com.mamontov.invoice_converter.common.ui.theme.AppTheme
 import com.mamontov.invoice_converter.getPlatform
+import dev.icerock.moko.resources.compose.painterResource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import moe.tlaster.kfilepicker.FilePicker
 import moe.tlaster.kfilepicker.PlatformFile
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RootScreen() {
     AppTheme(
         isDarkTheme = false,
     ) {
         val scope = rememberCoroutineScope()
-        var pickedFiles by remember { mutableStateOf(listOf<PlatformFile>()) }
+
+        var getChipsFiles by remember { mutableStateOf(InputData.EMPTY) }
+        var compelFiles by remember { mutableStateOf(InputData.EMPTY) }
+        var platanFiles by remember { mutableStateOf(InputData.EMPTY) }
+        var radiotechFiles by remember { mutableStateOf(InputData.EMPTY) }
+        var promFiles by remember { mutableStateOf(InputData.EMPTY) }
+
         var savedResult by remember { mutableStateOf<String?>(null) }
 
         Box(
@@ -49,37 +68,65 @@ fun RootScreen() {
         ) {
             Column {
                 Row {
-//                    Image(
-//                        painterResource(MR.images.ic_folder),
-//                        contentDescription = null,
-//                        modifier = Modifier
-//                            .padding(start = 16.dp)
-//                            .size(42.dp)
-//                            .clickable {
-//                                pickFiles(scope) { files ->
-//                                    pickedFiles = files
-//                                }
-//                            },
-//                        colorFilter = ColorFilter.tint(AppTheme.colors.onSurface)
-//                    )
-
-                    Button(
-                        modifier = Modifier.padding(start = 16.dp),
-                        onClick = { pickFilesToConvert(scope) { pickedFiles = it } }
-                    ) {
-                        Text(text = "Select files to convert")
-                    }
-
-                    Button(
-                        modifier = Modifier.padding(start = 16.dp),
-                        onClick = {
-                            convertFiles(scope, pickedFiles) {
-                                savedResult = it
-                            }
+                    PickItem(VendorType.GetChips) {
+                        pickFilesToConvert(scope) {
+                            getChipsFiles = InputData(files = it, type = VendorType.GetChips)
                         }
-                    ) {
-                        Text(text = "Convert selected files")
                     }
+
+                    PickItem(VendorType.Compel) {
+                        pickFilesToConvert(scope) {
+                            compelFiles = InputData(files = it, type = VendorType.Compel)
+                        }
+                    }
+
+                    PickItem(VendorType.Platan) {
+                        pickFilesToConvert(scope) {
+                            platanFiles = InputData(files = it, type = VendorType.Platan)
+                        }
+                    }
+
+                    PickItem(VendorType.Radiotech) {
+                        pickFilesToConvert(scope) {
+                            radiotechFiles = InputData(files = it, type = VendorType.Radiotech)
+                        }
+                    }
+
+                    PickItem(VendorType.Prom) {
+                        pickFilesToConvert(scope) {
+                            promFiles = InputData(files = it, type = VendorType.Prom)
+                        }
+                    }
+                }
+
+                Button(
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp),
+                    onClick = {
+                        getChipsFiles = InputData.EMPTY
+                        compelFiles = InputData.EMPTY
+                        platanFiles = InputData.EMPTY
+                        radiotechFiles = InputData.EMPTY
+                        promFiles = InputData.EMPTY
+                    }
+                ) {
+                    Text(text = "Очистить список файлов")
+                }
+
+                Button(
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp),
+                    onClick = {
+                        convertFiles(
+                            getChipsFiles,
+                            compelFiles,
+                            platanFiles,
+                            radiotechFiles,
+                            promFiles,
+                            scope = scope,
+                            onResult = { savedResult = it },
+                        )
+                    }
+                ) {
+                    Text(text = "Обработать выбранные")
                 }
 
                 LazyColumn(
@@ -87,38 +134,88 @@ fun RootScreen() {
                         .fillMaxSize()
                         .padding(16.dp)
                 ) {
-                    items(pickedFiles) { file ->
-                        PickedFileItem(file)
-                    }
+                    pickedFilesBlock(getChipsFiles)
+                    pickedFilesBlock(compelFiles)
+                    pickedFilesBlock(platanFiles)
+                    pickedFilesBlock(radiotechFiles)
+                    pickedFilesBlock(promFiles)
                 }
 
                 if (savedResult != null) {
-                    AlertDialog(
-                        onDismissRequest = {
-                            savedResult = null
-                        },
-                        modifier = Modifier
-                            .size(400.dp),
-                        properties = DialogProperties(),
-                    ) {
-                        Column(
-                            modifier = Modifier.background(AppTheme.colors.background),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(text = savedResult!!)
-                            Button(
-                                modifier = Modifier.padding(start = 16.dp),
-                                onClick = {
-                                    savedResult = null
-                                }
-                            ) {
-                                Text(text = "OK")
-                            }
-                        }
+                    ShowDialog(savedResult!!) {
+                        savedResult = null
                     }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShowDialog(
+    text: String,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { onDismiss() },
+        modifier = Modifier
+            .width(400.dp)
+            .height(200.dp),
+        properties = DialogProperties(),
+    ) {
+        Column(
+            modifier = Modifier.background(AppTheme.colors.background).padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            SelectionContainer {
+                Text(text = text, textAlign = TextAlign.Center)
+            }
+            Button(
+                modifier = Modifier.padding(top = 16.dp),
+                onClick = { onDismiss() }
+            ) {
+                Text(text = "OK")
+            }
+        }
+    }
+}
+
+@Composable
+private fun PickItem(
+    vendorType: VendorType,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.padding(start = 16.dp).clickable { onClick() },
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            painterResource(MR.images.ic_folder),
+            contentDescription = null,
+            modifier = Modifier
+                .size(42.dp),
+            colorFilter = ColorFilter.tint(AppTheme.colors.onSurface)
+        )
+        Text(text = vendorType.stringName)
+    }
+}
+
+private fun LazyListScope.pickedFilesBlock(
+    inputData: InputData,
+) {
+    if (inputData.files.isNotEmpty()) {
+        item {
+            Text(
+                inputData.type.stringName,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+        }
+        items(inputData.files) { file ->
+            PickedFileItem(file)
         }
     }
 }
@@ -130,7 +227,7 @@ private fun PickedFileItem(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 16.dp)
+            .padding(bottom = 8.dp)
     ) {
         Text(text = "File name = ${file.name}")
         Text(text = "File path = ${file.path}")
@@ -151,18 +248,18 @@ private fun pickFilesToConvert(scope: CoroutineScope, onFilesPicked: (List<Platf
 }
 
 private fun convertFiles(
+    vararg inputs: InputData,
     scope: CoroutineScope,
-    files: List<PlatformFile>,
     onResult: (String) -> Unit
 ) {
     scope.launch {
-        val data = getPlatform().convert(files)
+        val data = getPlatform().convert(inputs.toList())
         getPlatform().writeData(data)
             .onSuccess {
-                onResult("Success result, saved file on $it")
+                onResult("Сгенерированный файл лежит в папке Загрузки, имя: $it")
             }
             .onFailure {
-                onResult("Error occurred ${it.message ?: "Something went wrong"}")
+                onResult("Произошла ошибка ${it.message}")
             }
     }
 }

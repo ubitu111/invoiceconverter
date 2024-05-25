@@ -1,9 +1,7 @@
 package com.mamontov.invoice_converter
 
-import moe.tlaster.kfilepicker.PlatformFile
-
 class AndroidPlatform : Platform {
-    override suspend fun convert(files: List<PlatformFile>): List<ConvertedData> {
+    override suspend fun convert(inputs: List<InputData>): List<ConvertedData> {
         TODO("Not yet implemented")
     }
 
