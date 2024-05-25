@@ -2,14 +2,17 @@ package com.mamontov.invoice_converter
 
 import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.CellType
+import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.ByteArrayInputStream
-import java.math.RoundingMode
 import java.text.DecimalFormat
 import kotlin.io.path.Path
 import kotlin.io.path.outputStream
+
+private const val NO_INDEX: Int = -1
+private const val NO_VALUE: Double = -1.0
 
 class DesktopPlatform : Platform {
     override suspend fun convert(inputs: List<InputData>): List<ConvertedData> {
@@ -21,15 +24,22 @@ class DesktopPlatform : Platform {
                 val workbook = WorkbookFactory.create(inputStream)
                 val workSheet = workbook.getSheetAt(0)
 
-                var startRowNum = -1
-                var endRowNum = -1
+                var startRowNum = NO_INDEX
+                var endRowNum = NO_INDEX
 
-                var productsColumnIndex = -1 // наименование
-                var countColumnIndex = -1 // количество
-                var priceWithNdsColumnIndex = -1 // цена с НДС
-                var priceWithoutNdsColumnIndex = -1 // цена без НДС
+                var productsColumnIndex = NO_INDEX // наименование
+                var countColumnIndex = NO_INDEX // количество
+                val priceWithNdsColumnIndex = workSheet // цена с НДС
+                    .toPriceWithNdsIndex(inputData.type)
+                val priceWithoutNdsColumnIndex = workSheet // цена без НДС
+                    .toPriceWithoutNdsIndex(inputData.type)
 
-                workSheet.findBy("товар", "наименование")
+                val productCell = when (inputData.type) {
+                    VendorType.Radiotech -> workSheet.findBy("Товары (работы, услуги)")
+
+                    else -> workSheet.findBy("товар", "наименование")
+                }
+                productCell
                     ?.also { cell ->
                         println("file ${file.name} Cell = $cell contain Товар columnIndex = ${cell.columnIndex} rowIndex = ${cell.rowIndex}")
                         startRowNum = cell.rowIndex + 1
@@ -53,38 +63,6 @@ class DesktopPlatform : Platform {
                         countColumnIndex = cell.columnIndex
                     }
 
-                val priceWithoutNdsCell = workSheet.findBy("цена без ндс")
-                    ?.also { priceWithoutNdsColumnIndex = it.columnIndex }
-                println("priceWithoutNdsCell = $priceWithoutNdsCell")
-
-                val priceWithNdsCell = workSheet.findBy("цена с ндс")
-                    ?.also { priceWithNdsColumnIndex = it.columnIndex }
-                println("priceWithNdsCell = $priceWithNdsCell")
-
-                // не найдено ячеек с ценами с ндс или без, ищем в разных ячейках
-                if (priceWithNdsCell == null && priceWithoutNdsCell == null) {
-                    val (priceColumnIndex, priceRowIndex) = workSheet.findBy("цена")
-                        ?.let { it.columnIndex to it.rowIndex }
-                        ?: return@forEach // todo добавить маркер, что файл не был обработан
-
-                    val priceCellLower =
-                        workSheet.getRow(priceRowIndex + 1).getCell(priceColumnIndex)
-                    if (priceCellLower.toString().lowercase() == "с ндс") {
-                        priceWithNdsColumnIndex = priceColumnIndex
-                    } else if (priceCellLower.toString().lowercase() == "без ндс") {
-                        priceWithoutNdsColumnIndex = priceColumnIndex
-                    } else {
-                        val priceCellRight =
-                            workSheet.getRow(priceRowIndex).getCell(priceColumnIndex + 1)
-                        if (priceCellRight.toString().lowercase() == "с ндс") {
-                            priceWithNdsColumnIndex = priceColumnIndex
-                        } else if (priceCellRight.toString().lowercase() == "без ндс") {
-                            priceWithoutNdsColumnIndex = priceColumnIndex
-                        }
-                    }
-                }
-
-
                 for (i in startRowNum..endRowNum) {
                     val productRow = workSheet.getRow(i)
 
@@ -99,62 +77,34 @@ class DesktopPlatform : Platform {
                             .takeIf { it.toString().isNotEmpty() }
                             .toExactString()
 
-                        var priceWithNds = priceWithNdsColumnIndex
-                            .takeIf { it >= 0 }
-                            ?.let { index ->
-                                productRow.getCell(index)
-                                    .takeIf { it.toString().isNotEmpty() }
-                                    ?.toString()
-                                    ?.replace(",", ".")
-                                    ?.replace("$", "")
-                                    ?.trim()
-                            }
+                        val priceWithNdsStr = priceWithNdsColumnIndex.toPriceString(productRow)
+                        val priceWithoutNdsStr =
+                            priceWithoutNdsColumnIndex.toPriceString(productRow)
 
-                        var priceWithoutNds = priceWithoutNdsColumnIndex
-                            .takeIf { it >= 0 }
-                            ?.let { index ->
-                                productRow.getCell(index)
-                                    .takeIf { it.toString().isNotEmpty() }
-                                    ?.toString()
-                                    ?.replace(",", ".")
-                                    ?.replace("$", "")
-                                    ?.trim()
-                            }
-
-                        if (priceWithNds == null) {
-                            priceWithNds = priceWithoutNds?.toDoubleOrNull()
-                                ?.let { it * 1.2 }
-                                ?.toBigDecimal()
-                                ?.setScale(2, RoundingMode.HALF_UP)
-                                ?.toString()
-                        }
-
-                        if (priceWithoutNds == null) {
-                            priceWithoutNds = priceWithNds?.toDoubleOrNull()
-                                ?.div(1.2)
-                                ?.toBigDecimal()
-                                ?.setScale(2, RoundingMode.HALF_UP)
-                                ?.toString()
-                        }
-
-                        if (productName != null && productsCount != null && priceWithNds != null && priceWithoutNds != null) {
+                        if (productName != null && productsCount != null && (priceWithNdsStr != null || priceWithoutNdsStr != null)) {
                             val productsCountInt = productsCount.toInt()
-                            val sumWithoutNds = productsCountInt * priceWithoutNds.toDouble()
-                            val sumWithNds = (sumWithoutNds * 1.2).toBigDecimal()
-                                .setScale(2, RoundingMode.HALF_UP)
-                                .toDouble()
+                            val priceWithoutNds = priceWithoutNdsStr?.toDoubleOrNull()
+                            val priceWithNds = priceWithNdsStr?.toDoubleOrNull()
+
+                            val sumWithoutNds = priceWithoutNds
+                                ?.let { productsCountInt * it }
+                                ?: NO_VALUE
+                            val sumWithNds = priceWithNds
+                                ?.let { productsCountInt * it }
+                                ?: NO_VALUE
 
                             result.add(
                                 ConvertedData(
                                     productName = productName,
                                     productsCount = productsCountInt.toDouble(),
-                                    priceWithNds = priceWithNds.toDouble(),
-                                    priceWithoutNds = priceWithoutNds.toDouble(),
+                                    priceWithNds = priceWithNds ?: NO_VALUE,
+                                    priceWithoutNds = priceWithoutNds ?: NO_VALUE,
                                     sumWithNds = sumWithNds,
                                     sumWithoutNds = sumWithoutNds,
-                                )
+                                ).also {
+                                    println("file ${file.name} ConvertedData=$it")
+                                }
                             )
-                            println("file ${file.name} productName=$productName productsCount=${productsCountInt.toDouble()} priceWithNds=$priceWithNds priceWithoutNds=$priceWithoutNds summWithNds=$sumWithNds summWithoutNds=$sumWithoutNds")
                         } else {
                             // todo добавить маркер, что файл не был обработан
                         }
@@ -185,10 +135,18 @@ class DesktopPlatform : Platform {
             workSheet.createRow(index + 1).apply {
                 createCell(0).setCellValue(convertedData.productName)
                 createCell(1).setCellValue(convertedData.productsCount)
-                createCell(2).setCellValue(convertedData.priceWithoutNds)
-                createCell(3).setCellValue(convertedData.priceWithNds)
-                createCell(4).setCellValue(convertedData.sumWithoutNds)
-                createCell(5).setCellValue(convertedData.sumWithNds)
+                convertedData.priceWithoutNds
+                    .takeIf { it != NO_VALUE }
+                    ?.let { createCell(2).setCellValue(it) }
+                convertedData.priceWithNds
+                    .takeIf { it != NO_VALUE }
+                    ?.let { createCell(3).setCellValue(it) }
+                convertedData.sumWithoutNds
+                    .takeIf { it != NO_VALUE }
+                    ?.let { createCell(4).setCellValue(it) }
+                convertedData.sumWithNds
+                    .takeIf { it != NO_VALUE }
+                    ?.let { createCell(5).setCellValue(it) }
             }
         }
 
@@ -241,6 +199,50 @@ class DesktopPlatform : Platform {
             else -> null
         }
     }
+
+    private fun Sheet.toPriceWithNdsIndex(type: VendorType): Int {
+        return when (type) {
+            VendorType.GetChips -> findBy("цена с ндс")
+                ?.columnIndex
+                ?: NO_INDEX
+
+            else -> NO_INDEX
+        }
+    }
+
+    private fun Sheet.toPriceWithoutNdsIndex(type: VendorType): Int {
+        val cell = when (type) {
+            VendorType.Compel -> findBy("цена без ндс")
+
+            VendorType.Platan -> findBy("цена")
+
+            VendorType.Radiotech -> findBy("цена")
+
+            VendorType.Prom -> findBy("цена без ндс")
+
+            else -> null
+        }
+
+        return cell?.columnIndex ?: NO_INDEX
+    }
+
+    private fun Int.toPriceString(productRow: Row): String? {
+        return takeIf { it >= 0 }
+            ?.let { index ->
+                productRow.getCell(index)
+                    .takeIf { it.toString().isNotEmpty() }
+                    ?.toString()
+                    ?.replace(",", ".")
+                    ?.replace("$", "")
+                    ?.trim()
+            }
+    }
 }
 
 actual fun getPlatform(): Platform = DesktopPlatform()
+
+// 1. Гетчипс - берем столбцы цен ТОЛЬКО С НДС +
+// 2. Компэл - убрать столбец с долларами из счета - остается БЕЗ НДС +
+// 3. Платан - берем столбцы ТОЛЬКО БЕЗ НДС +
+// 4. Радиотех - добавить
+// 5. Пром - проверить
