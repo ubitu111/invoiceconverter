@@ -172,23 +172,28 @@ class DesktopPlatform : Platform {
         val workbook = XSSFWorkbook()
         val workSheet = workbook.createSheet()
 
-        val titleRow = workSheet.createRow(0)
-
-        titleRow.createCell(0).setCellValue("Наименование поставщика")
-        titleRow.createCell(1).setCellValue("Количество")
-        titleRow.createCell(2).setCellValue("Цена без НДС")
-        titleRow.createCell(3).setCellValue("Цена с НДС")
-        titleRow.createCell(4).setCellValue("Сумма без НДС")
-        titleRow.createCell(5).setCellValue("Сумма с НДС")
+        workSheet.createRow(0).apply {
+            createCell(0).setCellValue("Наименование поставщика")
+            createCell(1).setCellValue("Количество")
+            createCell(2).setCellValue("Цена без НДС")
+            createCell(3).setCellValue("Цена с НДС")
+            createCell(4).setCellValue("Сумма без НДС")
+            createCell(5).setCellValue("Сумма с НДС")
+        }
 
         data.forEachIndexed { index, convertedData ->
-            val row = workSheet.createRow(index + 1)
-            row.createCell(0).setCellValue(convertedData.productName)
-            row.createCell(1).setCellValue(convertedData.productsCount)
-            row.createCell(2).setCellValue(convertedData.priceWithoutNds)
-            row.createCell(3).setCellValue(convertedData.priceWithNds)
-            row.createCell(4).setCellValue(convertedData.sumWithoutNds)
-            row.createCell(5).setCellValue(convertedData.sumWithNds)
+            workSheet.createRow(index + 1).apply {
+                createCell(0).setCellValue(convertedData.productName)
+                createCell(1).setCellValue(convertedData.productsCount)
+                createCell(2).setCellValue(convertedData.priceWithoutNds)
+                createCell(3).setCellValue(convertedData.priceWithNds)
+                createCell(4).setCellValue(convertedData.sumWithoutNds)
+                createCell(5).setCellValue(convertedData.sumWithNds)
+            }
+        }
+
+        for (i in 0..5) {
+            workSheet.autoSizeColumn(i)
         }
 
         val tempFile = kotlin.io.path.createTempFile(

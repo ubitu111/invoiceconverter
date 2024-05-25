@@ -252,14 +252,18 @@ private fun convertFiles(
     scope: CoroutineScope,
     onResult: (String) -> Unit
 ) {
-    scope.launch {
-        val data = getPlatform().convert(inputs.toList())
-        getPlatform().writeData(data)
-            .onSuccess {
-                onResult("Сгенерированный файл лежит в папке Загрузки, имя: $it")
-            }
-            .onFailure {
-                onResult("Произошла ошибка ${it.message}")
-            }
+    if (inputs.toList().any { it != InputData.EMPTY }) {
+        scope.launch {
+            val data = getPlatform().convert(inputs.toList())
+            getPlatform().writeData(data)
+                .onSuccess {
+                    onResult("Сгенерированный файл лежит в папке Загрузки, имя: $it")
+                }
+                .onFailure {
+                    onResult("Произошла ошибка ${it.message}")
+                }
+        }
+    } else {
+        onResult("Нужно выбрать файлы для обработки")
     }
 }
