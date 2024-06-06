@@ -92,11 +92,11 @@ fun RootScreen() {
                         }
                     }
 
-                    PickItem(VendorType.Prom) {
-                        pickFilesToConvert(scope) {
-                            promFiles = InputData(files = it, type = VendorType.Prom)
-                        }
-                    }
+//                    PickItem(VendorType.Prom) {
+//                        pickFilesToConvert(scope) {
+//                            promFiles = InputData(files = it, type = VendorType.Prom)
+//                        }
+//                    }
                 }
 
                 Button(

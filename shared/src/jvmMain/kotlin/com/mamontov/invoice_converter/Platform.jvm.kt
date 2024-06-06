@@ -9,6 +9,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.ByteArrayInputStream
 import java.text.DecimalFormat
 import kotlin.io.path.Path
+import kotlin.io.path.createTempFile
 import kotlin.io.path.outputStream
 
 private const val NO_INDEX: Int = -1
@@ -35,7 +36,7 @@ class DesktopPlatform : Platform {
                     .toPriceWithoutNdsIndex(inputData.type)
 
                 val productCell = when (inputData.type) {
-                    VendorType.Radiotech -> workSheet.findBy("Товары (работы, услуги)")
+                    VendorType.Radiotech -> workSheet.findBy("товары (работы, услуги)")
 
                     else -> workSheet.findBy("товар", "наименование")
                 }
@@ -154,7 +155,7 @@ class DesktopPlatform : Platform {
             workSheet.autoSizeColumn(i)
         }
 
-        val tempFile = kotlin.io.path.createTempFile(
+        val tempFile = createTempFile(
             directory = Path(System.getProperty("user.home") + "/Downloads/"),
             prefix = "generated_output_",
             suffix = ".xlsx",
@@ -201,13 +202,15 @@ class DesktopPlatform : Platform {
     }
 
     private fun Sheet.toPriceWithNdsIndex(type: VendorType): Int {
-        return when (type) {
+        val cell = when (type) {
             VendorType.GetChips -> findBy("цена с ндс")
-                ?.columnIndex
-                ?: NO_INDEX
 
-            else -> NO_INDEX
+            VendorType.Radiotech -> findBy("цена")
+
+            else -> null
         }
+
+        return cell?.columnIndex ?: NO_INDEX
     }
 
     private fun Sheet.toPriceWithoutNdsIndex(type: VendorType): Int {
@@ -216,9 +219,7 @@ class DesktopPlatform : Platform {
 
             VendorType.Platan -> findBy("цена")
 
-            VendorType.Radiotech -> findBy("цена")
-
-            VendorType.Prom -> findBy("цена без ндс")
+//            VendorType.Prom -> findBy("цена без ндс")
 
             else -> null
         }

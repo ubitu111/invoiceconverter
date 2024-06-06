@@ -33,7 +33,7 @@ enum class VendorType(val stringName: String) {
     Compel("Компэл"),
     Platan("Платан"),
     Radiotech("Радиотех"),
-    Prom("Пром"),
+//    Prom("Пром"),
     Empty(""),
 }
 
